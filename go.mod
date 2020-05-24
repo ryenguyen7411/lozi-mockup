@@ -1,5 +1,5 @@
-module example.com/user/hello
+module main
 
 go 1.14
 
-require github.com/google/go-cmp v0.4.1
+require github.com/gorilla/mux v1.7.4
