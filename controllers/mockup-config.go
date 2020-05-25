@@ -1,6 +1,8 @@
 package controllers
 
-import "net/http"
+import (
+	"net/http"
+)
 
 // Get list of mockup config
 func mockupConfigs(w http.ResponseWriter, r *http.Request) {
@@ -27,11 +29,14 @@ func deleteMockupConfig(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// MockupConfigRouter ...
-var MockupConfigRouter = []struct {
+// RouterConfig ...
+type RouterConfig struct {
 	Method, URL string
 	Handler     func(w http.ResponseWriter, r *http.Request)
-}{
+}
+
+// MockupConfigRouter ...
+var MockupConfigRouter = []RouterConfig{
 	{"GET", "/mockup-configs", mockupConfigs},
 	{"GET", "/mockup-config/{id}", mockupConfig},
 	{"POST", "/mockup-config", createMockupConfig},
