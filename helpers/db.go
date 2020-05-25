@@ -26,6 +26,9 @@ func CloseDB() {
 
 // Create ...
 func Create(key []byte, value []byte) (string, error) {
+	OpenDB()
+	defer CloseDB()
+
 	err = db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists(world)
 		if err != nil {
@@ -33,7 +36,7 @@ func Create(key []byte, value []byte) (string, error) {
 		}
 
 		val := bucket.Get(key)
-		if val != nil {
+		if val != nil && len(val) > 0 {
 			return fmt.Errorf("Key is already existed")
 		}
 
@@ -49,8 +52,10 @@ func Create(key []byte, value []byte) (string, error) {
 
 // Read ...
 func Read(key []byte) (string, error) {
-	var val []byte
+	OpenDB()
+	defer CloseDB()
 
+	var val []byte
 	err = db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(world)
 		if bucket == nil {
@@ -66,6 +71,9 @@ func Read(key []byte) (string, error) {
 
 // Update ...
 func Update(key []byte, value []byte) (string, error) {
+	OpenDB()
+	defer CloseDB()
+
 	err = db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(world)
 		if bucket == nil {
@@ -89,8 +97,10 @@ func Update(key []byte, value []byte) (string, error) {
 
 // Delete ...
 func Delete(key []byte) (string, error) {
-	var val []byte
+	OpenDB()
+	defer CloseDB()
 
+	var val []byte
 	err = db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(world)
 		if bucket == nil {
@@ -102,7 +112,7 @@ func Delete(key []byte) (string, error) {
 			return fmt.Errorf("Key is not existed")
 		}
 
-		err = bucket.Put(key, nil)
+		err = bucket.Delete(key)
 		if err != nil {
 			return err
 		}
@@ -111,4 +121,23 @@ func Delete(key []byte) (string, error) {
 	})
 
 	return string(val), err
+}
+
+// GetNextSequence ...
+func GetNextSequence() uint64 {
+	OpenDB()
+	defer CloseDB()
+
+	var nextID uint64
+	err = db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(world)
+		if bucket == nil {
+			return fmt.Errorf("Bucket %q not found", world)
+		}
+
+		nextID, _ = bucket.NextSequence()
+		return nil
+	})
+
+	return nextID
 }

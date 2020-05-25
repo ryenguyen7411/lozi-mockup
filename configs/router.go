@@ -1,6 +1,7 @@
 package configs
 
 import (
+	"fmt"
 	"log"
 	"main/controllers"
 	"net/http"
@@ -17,5 +18,6 @@ func HandleRouter() {
 		router.HandleFunc(item.URL, item.Handler).Methods(item.Method)
 	}
 
+	fmt.Println("Server is listening on localhost:5000")
 	log.Fatal(http.ListenAndServe(":5000", router))
 }
