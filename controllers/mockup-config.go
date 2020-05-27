@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"main/helpers"
-	"main/helpers/db"
 	"main/models"
 	"net/http"
 	"strconv"
@@ -14,7 +13,18 @@ import (
 
 // Get list of mockup config
 func mockupConfigs(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
+	db := helpers.OpenDB()
+	defer helpers.CloseDB()
+
+	var mockupConfigs []models.MockupConfig
+	err := db.All(&mockupConfigs)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	json.NewEncoder(w).Encode(mockupConfigs)
 }
 
 // Get mockup config
@@ -22,15 +32,13 @@ func mockupConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
-	// Get mockup config by id
-	id, err := strconv.Atoi(params["id"])
-	bytes, err := db.Read(helpers.Itob(id))
-	if err != nil {
-		log.Fatal(err)
-	}
+	db := helpers.OpenDB()
+	defer helpers.CloseDB()
 
 	var mockupConfig models.MockupConfig
-	err = json.Unmarshal([]byte(bytes), &mockupConfig)
+	id, _ := strconv.Atoi(params["id"])
+
+	err := db.One("ID", id, &mockupConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -42,26 +50,19 @@ func mockupConfig(w http.ResponseWriter, r *http.Request) {
 func createMockupConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	// Validate body
-	var newMockupConfig models.MockupConfig
-	json.NewDecoder(r.Body).Decode(&newMockupConfig)
+	db := helpers.OpenDB()
+	defer helpers.CloseDB()
+
+	var mockupConfig models.MockupConfig
+	json.NewDecoder(r.Body).Decode(&mockupConfig)
 	// TODO: validate body
 
-	nextID := db.GetNextSequence()
-	newMockupConfig.ID = int(nextID)
-
-	// Save to DB
-	bytes, err := json.Marshal(newMockupConfig)
+	err := db.Save(&mockupConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	_, err = db.Create(helpers.Itob(newMockupConfig.ID), bytes)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	json.NewEncoder(w).Encode(newMockupConfig)
+	json.NewEncoder(w).Encode(mockupConfig)
 }
 
 // Update mockup config
@@ -69,34 +70,21 @@ func updateMockupConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
-	// Get mockup config by id
-	id, err := strconv.Atoi(params["id"])
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	bytes, err := db.Read(helpers.Itob(id))
-	if err != nil {
-		log.Fatal(err)
-	}
+	db := helpers.OpenDB()
+	defer helpers.CloseDB()
 
 	var mockupConfig models.MockupConfig
-	err = json.Unmarshal([]byte(bytes), &mockupConfig)
+	id, _ := strconv.Atoi(params["id"])
+
+	err := db.One("ID", id, &mockupConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Validate body
 	json.NewDecoder(r.Body).Decode(&mockupConfig)
 	// TODO: validate body
 
-	// Save to DB
-	newBytes, err := json.Marshal(mockupConfig)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	_, err = db.Update(helpers.Itob(mockupConfig.ID), newBytes)
+	err = db.Save(&mockupConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -109,19 +97,18 @@ func deleteMockupConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
-	// Delete mockup config by id
-	id, err := strconv.Atoi(params["id"])
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	bytes, err := db.Delete(helpers.Itob(id))
-	if err != nil {
-		log.Fatal(err)
-	}
+	db := helpers.OpenDB()
+	defer helpers.CloseDB()
 
 	var mockupConfig models.MockupConfig
-	err = json.Unmarshal([]byte(bytes), &mockupConfig)
+	id, _ := strconv.Atoi(params["id"])
+
+	err := db.One("ID", id, &mockupConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = db.Drop(&mockupConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
