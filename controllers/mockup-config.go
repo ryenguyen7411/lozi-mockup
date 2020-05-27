@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"main/helpers"
+	"main/helpers/db"
 	"main/models"
 	"net/http"
 	"strconv"
@@ -23,7 +24,7 @@ func mockupConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Get mockup config by id
 	id, err := strconv.Atoi(params["id"])
-	bytes, err := helpers.Read(helpers.Itob(id))
+	bytes, err := db.Read(helpers.Itob(id))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -46,7 +47,7 @@ func createMockupConfig(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&newMockupConfig)
 	// TODO: validate body
 
-	nextID := helpers.GetNextSequence()
+	nextID := db.GetNextSequence()
 	newMockupConfig.ID = int(nextID)
 
 	// Save to DB
@@ -55,7 +56,7 @@ func createMockupConfig(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	_, err = helpers.Create(helpers.Itob(newMockupConfig.ID), bytes)
+	_, err = db.Create(helpers.Itob(newMockupConfig.ID), bytes)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -74,7 +75,7 @@ func updateMockupConfig(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	bytes, err := helpers.Read(helpers.Itob(id))
+	bytes, err := db.Read(helpers.Itob(id))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -95,7 +96,7 @@ func updateMockupConfig(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	_, err = helpers.Update(helpers.Itob(mockupConfig.ID), newBytes)
+	_, err = db.Update(helpers.Itob(mockupConfig.ID), newBytes)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -114,7 +115,7 @@ func deleteMockupConfig(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	bytes, err := helpers.Delete(helpers.Itob(id))
+	bytes, err := db.Delete(helpers.Itob(id))
 	if err != nil {
 		log.Fatal(err)
 	}
