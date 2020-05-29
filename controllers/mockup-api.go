@@ -5,12 +5,12 @@ import (
 	"log"
 	"main/helpers"
 	"main/models"
-	"math/rand"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/asdine/storm/q"
+	"github.com/asdine/storm/v3/q"
+	faker "github.com/brianvoe/gofakeit/v5"
 )
 
 type any = interface{}
@@ -21,15 +21,15 @@ func genFakeData(fakeType any, fakeExtra any) any {
 	rawFakeData := func() any {
 		switch fakeType {
 		case "boolean":
-			return true
+			return faker.Bool()
 		case "int":
-			return 0
+			return faker.Int64()
 		case "float":
-			return 1.0
+			return faker.Float64()
 		case "string":
-			return "Fake string"
+			return faker.Sentence(5)
 		case "date":
-			return "29/05/2020"
+			return faker.Date().Format(time.RFC3339)
 		default:
 			return ""
 		}
@@ -67,6 +67,7 @@ func formatFakeData(rawFakeData any, fakeExtra any) any {
 
 func parseDataRecursive(dataModel object) object {
 	data := make(object)
+	faker.Seed(0)
 
 	for key, value := range dataModel {
 		switch value.(type) {
@@ -79,10 +80,9 @@ func parseDataRecursive(dataModel object) object {
 			extra := dataModel[key+".count"]
 			var count int
 			if extra != nil {
-				rand.Seed(time.Now().UnixNano())
 				min := int(extra.(object)["min"].(float64))
 				max := int(extra.(object)["max"].(float64))
-				count = rand.Intn(max-min+1) + min
+				count = faker.Number(min, max)
 			} else {
 				count = 1
 			}
