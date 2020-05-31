@@ -5,12 +5,14 @@ import (
 	"log"
 	"main/helpers"
 	"main/models"
+	"math"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/asdine/storm/v3/q"
 	faker "github.com/brianvoe/gofakeit/v5"
+	"github.com/iancoleman/strcase"
 )
 
 type any = interface{}
@@ -18,16 +20,93 @@ type array = []any
 type object = map[string]any
 
 func genFakeData(fakeType any, fakeExtra any) any {
-	rawFakeData := func() any {
+	// round
+	fakeDataInt := func() int {
+		min := fakeExtra.(object)["min"]
+		max := fakeExtra.(object)["max"]
+
+		res := func() int {
+			if min == nil && max == nil {
+				return faker.Number(0, math.MaxInt16)
+			}
+			if min == nil {
+				return faker.Number(math.MinInt16, int(max.(float64)))
+			}
+			if max == nil {
+				return faker.Number(int(min.(float64)), math.MaxInt16)
+			}
+			return faker.Number(int(min.(float64)), int(max.(float64)))
+		}()
+
+		return res
+	}
+
+	fakeDataFloat := func() float64 {
+		min := fakeExtra.(object)["min"]
+		max := fakeExtra.(object)["max"]
+		precision := fakeExtra.(object)["precision"]
+
+		res := func() float64 {
+			if min == nil && max == nil {
+				return faker.Float64Range(0, math.MaxInt16)
+			}
+			if min == nil {
+				return faker.Float64Range(math.MinInt16, max.(float64))
+			}
+			if max == nil {
+				return faker.Float64Range(min.(float64), math.MaxInt16)
+			}
+			return faker.Float64Range(min.(float64), max.(float64))
+		}()
+
+		if precision == nil {
+			return math.Round(res*math.Pow(10, 3)) / math.Pow(10, 3)
+		}
+		return math.Round(res*math.Pow(10, precision.(float64))) / math.Pow(10, precision.(float64))
+	}
+
+	// enum
+	fakeDataString := func() string {
+		var res string
+		word := fakeExtra.(object)["word"]
+		format := fakeExtra.(object)["format"]
+
+		if word == nil {
+			res = faker.Sentence(2)
+		} else {
+			res = faker.Sentence(int(word.(float64)))
+		}
+		res = strings.TrimSuffix(res, ".")
+
+		if format == nil {
+			return res
+		}
+		if format == "username" {
+			return strings.Replace(strings.ToLower(res), " ", "", -1)
+		}
+		if format == "slug" {
+			return strcase.ToKebab(res)
+		}
+		if format == "imageUrl" {
+			return faker.ImageURL(512, 512)
+		}
+		if format == "phone" {
+			return faker.Phone()
+		}
+
+		return res
+	}
+
+	fakeData := func() any {
 		switch fakeType {
 		case "boolean":
 			return faker.Bool()
 		case "int":
-			return faker.Int64()
+			return fakeDataInt()
 		case "float":
-			return faker.Float64()
+			return fakeDataFloat()
 		case "string":
-			return faker.Sentence(5)
+			return fakeDataString()
 		case "date":
 			return faker.Date().Format(time.RFC3339)
 		default:
@@ -35,34 +114,7 @@ func genFakeData(fakeType any, fakeExtra any) any {
 		}
 	}()
 
-	return formatFakeData(rawFakeData, fakeExtra)
-}
-
-func formatFakeData(rawFakeData any, fakeExtra any) any {
-	if fakeExtra == nil {
-		return rawFakeData
-	}
-
-	// min := (fakeExtra.(object)["min"].(float64))
-	// max := (fakeExtra.(object)["max"].(float64))
-	// format := fakeExtra.(object)["max"].(string)
-
-	formatInt := func() int {
-		return rawFakeData.(int)
-	}
-
-	formatString := func() string {
-		return rawFakeData.(string)
-	}
-
-	switch rawFakeData.(type) {
-	case int:
-		return formatInt()
-	case string:
-		return formatString()
-	default:
-		return rawFakeData
-	}
+	return fakeData
 }
 
 func parseDataRecursive(dataModel object) object {
@@ -72,30 +124,29 @@ func parseDataRecursive(dataModel object) object {
 	for key, value := range dataModel {
 		switch value.(type) {
 		case object:
-			if strings.Contains(key, ".count") || strings.Contains(key, ".format") {
+			if value.(object)["type"] == "array" {
+				len := value.(object)["len"]
+				if len == nil {
+					len = faker.Number(0, 24)
+				} else {
+					len = int(len.(float64))
+				}
+
+				data[key] = make(array, len.(int))
+				item := value.(object)["items"].(object)
+
+				for index := range data[key].(array) {
+					data[key].(array)[index] = parseDataRecursive(item)
+				}
 				break
 			}
-			data[key] = parseDataRecursive(value.(object))
-		case array:
-			extra := dataModel[key+".count"]
-			var count int
-			if extra != nil {
-				min := int(extra.(object)["min"].(float64))
-				max := int(extra.(object)["max"].(float64))
-				count = faker.Number(min, max)
-			} else {
-				count = 1
+			if value.(object)["type"] == "object" {
+				data[key] = parseDataRecursive(value.(object)["properties"].(object))
+				break
 			}
-
-			data[key] = make(array, count)
-			item := value.(array)[0].(object)
-
-			for index := range data[key].(array) {
-				data[key].(array)[index] = parseDataRecursive(item)
-			}
+			data[key] = genFakeData(value.(object)["type"], value.(object))
 		default:
-			extra := dataModel[key+".format"]
-			data[key] = genFakeData(value, extra)
+			data[key] = genFakeData(value, nil)
 		}
 	}
 
@@ -103,8 +154,11 @@ func parseDataRecursive(dataModel object) object {
 }
 
 // MockupAPIHandler ...
-/** TODO: phase 2: consistent return
-- stored fake data into db for next use
+/** TODO: phase 2:
+- failedRatio
+- consistent return, stored fake data into db for next use
+- POST / PUT / DELETE
+- tool for control dataModels
 */
 func MockupAPIHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
