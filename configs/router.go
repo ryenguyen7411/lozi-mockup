@@ -2,10 +2,10 @@ package configs
 
 import (
 	"fmt"
-	"log"
 	"main/controllers"
 	"net/http"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
@@ -21,5 +21,12 @@ func HandleRouter() {
 	router.PathPrefix("/").HandlerFunc(controllers.MockupAPIHandler)
 
 	fmt.Println("Server is listening on localhost:5000")
-	log.Fatal(http.ListenAndServe(":5000", router))
+	http.ListenAndServe(
+		":5000",
+		handlers.CORS(
+			handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"}),
+			handlers.AllowedMethods([]string{"GET", "POST", "PUT", "HEAD", "OPTIONS"}),
+			handlers.AllowedOrigins([]string{"*"}),
+		)(router),
+	)
 }

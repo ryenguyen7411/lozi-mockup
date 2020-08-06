@@ -171,7 +171,8 @@ func MockupAPIHandler(w http.ResponseWriter, r *http.Request) {
 	)
 	err := query.First(&mockupConfig)
 	if err != nil {
-		log.Fatal(err)
+		json.NewEncoder(w).Encode("")
+		return
 	}
 
 	var dataModel object
